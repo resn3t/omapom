@@ -2,6 +2,8 @@
 
 Pomodoro timer as an [Omarchy](https://github.com/basecamp/omarchy) bar widget.
 
+![Pomodoro widget with settings popup](docs/widget_screenshot.png)
+
 ## Features
 
 - Start/pause with left-click, skip with middle-click, settings with right-click
