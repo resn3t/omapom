@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "id": "local.pomodoro",
+  "name": "Pomodoro",
+  "version": "1.5.0",
+  "author": "Local",
+  "description": "Theme-adaptive Pomodoro timer with bar-native controls, right-click settings, and local-AI break alerts",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Pomodoro",
+    "description": "Left-click starts or pauses; right-click opens settings even while running; middle-click skips. Adjust durations with +/\u2212 buttons.",
+    "category": "Productivity",
+    "defaultSection": "right",
+    "allowMultiple": false,
+    "defaults": {
+      "workMinutes": 25,
+      "breakMinutes": 5,
+      "longBreakMinutes": 15,
+      "iterations": 4
+    },
+    "schema": [
+      {
+        "key": "workMinutes",
+        "type": "integer",
+        "label": "Work duration (minutes)",
+        "min": 1,
+        "max": 240,
+        "step": 1,
+        "defaultValue": 25
+      },
+      {
+        "key": "breakMinutes",
+        "type": "integer",
+        "label": "Break duration (minutes)",
+        "min": 1,
+        "max": 120,
+        "step": 1,
+        "defaultValue": 5
+      },
+      {
+        "key": "longBreakMinutes",
+        "type": "integer",
+        "label": "Long break duration (minutes)",
+        "min": 1,
+        "max": 240,
+        "step": 1,
+        "defaultValue": 15
+      },
+      {
+        "key": "iterations",
+        "type": "integer",
+        "label": "Work sessions before long break",
+        "min": 1,
+        "max": 12,
+        "step": 1,
+        "defaultValue": 4
+      }
+    ]
+  }
+}
