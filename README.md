@@ -1,6 +1,8 @@
-# omarchy-local-pomodoro
+# omapom — Pomodoro timer for Omarchy
 
 Pomodoro timer as an [Omarchy](https://github.com/basecamp/omarchy) bar widget.
+
+[![GitHub](https://img.shields.io/badge/GitHub-omapom-blue)](https://github.com/resn3t/omapom)
 
 ![Pomodoro widget with settings popup](docs/widget_screenshot.png)
 
@@ -16,8 +18,9 @@ Pomodoro timer as an [Omarchy](https://github.com/basecamp/omarchy) bar widget.
 
 Install as a local plugin:
 
-```
-cp -r omarchy-local-pomodoro ~/.config/omarchy/plugins/local.pomodoro
+```bash
+git clone https://github.com/resn3t/omapom.git
+cp -r omapom ~/.config/omarchy/plugins/local.pomodoro
 ```
 
 Then restart the Omarchy shell (`omarchy restart shell`). Add the widget to

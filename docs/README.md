@@ -1,4 +1,4 @@
-# omarchy-local-pomodoro — Documentation
+# omapom — Pomodoro timer for Omarchy (Documentation)
 
 This directory contains project documentation.
 
