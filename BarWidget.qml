@@ -12,7 +12,7 @@ BarWidget {
   property bool running: false
   property bool settingsOpen: false
   property bool alertOpen: false
-  property string alertComment: "The tomato says: step away, stretch, and let your brain simmer."
+  property string alertComment: "The tomato has spoken. Step away before it turns judgmental."
   property string alertPhase: "Break"
   property string alertPhaseDuration: ""
   property int completedWork: 0
@@ -22,6 +22,7 @@ BarWidget {
   property bool restored: false
   property bool resetTimer: false
   property bool resetConfirmVisible: false
+  property int commentIndex: -1
   readonly property string stateDir: Quickshell.env("HOME") + "/.local/state/omarchy-pomodoro"
 
   readonly property int workDuration: Math.max(1, Number(setting("workMinutes", 25)) || 25) * 60
@@ -61,7 +62,8 @@ BarWidget {
   function writeState() {
     stateFile.setText(JSON.stringify({
       phase: phase, running: running, completedWork: completedWork,
-      deadlineMs: deadlineMs, remainingSeconds: remainingSeconds, phaseTotal: phaseTotal
+      deadlineMs: deadlineMs, remainingSeconds: remainingSeconds, phaseTotal: phaseTotal,
+      commentIndex: commentIndex
     }))
   }
 
@@ -73,6 +75,8 @@ BarWidget {
       completedWork = Math.max(0, Number(saved.completedWork) || 0)
       phaseTotal = Math.max(1, Number(saved.phaseTotal) || phaseDuration)
       remainingSeconds = Math.max(0, Number(saved.remainingSeconds) || phaseTotal)
+      commentIndex = Number(saved.commentIndex)
+      if (isNaN(commentIndex)) commentIndex = -1
       if (saved.running === true && Number(saved.deadlineMs) > Date.now()) {
         deadlineMs = Number(saved.deadlineMs)
         running = true
@@ -171,21 +175,39 @@ BarWidget {
       .replace(/^file:\/\//, ""))
   }
 
-  function fallbackComment() {
-    var lines = [
-      "The tomato says: step away, stretch, and let your brain simmer.",
-      "Break protocol: water, shoulders down, eyes off the glowing rectangle.",
-      "Omarchy suggests a tiny walk. Your future self has filed a formal request.",
-      "The work goblin is fed. Go recharge before the next round.",
-      "Look at something farther away than your terminal. The tomato insists."
-    ]
-    return lines[Math.floor((Date.now() / 1000) % lines.length)]
+  readonly property var breakComments: [
+    "The tomato has spoken. Step away before it turns judgmental.",
+    "Break protocol: water, shoulders down, eyes off the glowing rectangle.",
+    "Congratulations, you've defeated a Pomodoro. Loot: one (1) stretch.",
+    "Productivity says thanks. Procrastination says \"so... later?\" Ignore it, go rest.",
+    "Omarchy suggests a tiny walk. Your future self has filed a formal request.",
+    "The work goblin is fed. Go recharge before the next round.",
+    "Look at something farther away than your terminal. The tomato insists.",
+    "Plot twist: the real productivity was the breaks you took along the way.",
+    "Your focus meter is empty. Refill with snacks, not more tabs.",
+    "This has been a paid advertisement for standing up.",
+    "Achievement unlocked: Sat Still For 25 Minutes. Now go be a human for a bit.",
+    "The tomato is legally required to remind you that chairs are not permanent.",
+    "Deep work complete. Deep breath now due.",
+    "Your inbox will still be there in five minutes. Sadly, so will you.",
+    "Rest is not a bug, it's a feature. Please update your posture.",
+    "One Pomodoro down. The sauce is you, simmering nicely.",
+    "Time to blink twice and remember windows exist outside your monitor.",
+    "The next task can wait. Your spine, less so.",
+    "Break time: mandatory. Guilt about breaks: not allowed.",
+    "You've earned a stretch, a sip of water, and mild disdain for whoever scheduled this many meetings."
+  ]
+
+  function nextComment() {
+    commentIndex = (commentIndex + 1) % breakComments.length
+    saveState()
+    return breakComments[commentIndex]
   }
 
   function triggerBreakAlert() {
     alertPhase = phase === "longBreak" ? "Long break" : "Break"
     alertPhaseDuration = formatSeconds(phaseDuration)
-    alertComment = fallbackComment()
+    alertComment = nextComment()
     alertOpen = true
     notifyProc.command = ["bash", helperPath(), "--notify", alertComment]
     notifyProc.running = true

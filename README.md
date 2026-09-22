@@ -12,10 +12,11 @@ Pomodoro timer as an [Omarchy](https://github.com/basecamp/omarchy) bar widget.
 - Configurable work, break, and long-break durations
 - Tracks completed sessions before auto-promoting to a long break
 - Theme-adaptive bar icon that shows the current phase and remaining time
-- Break alerts: plays a notification sound with a short reminder message. If
-  a local `pi` CLI with an Ollama model is configured on the machine, the
-  message is generated fresh each time; otherwise it falls back to a fixed
-  reminder text. No AI setup is required to use the widget.
+- Break alerts: plays a notification sound with a short, witty reminder.
+  Cycles through 20 hardcoded pomodoro/productivity one-liners (a new one
+  each break) — no setup required. If a local `pi` CLI with an Ollama model
+  is configured on the machine, that line gets replaced with a freshly
+  generated one instead.
 
 ## Install
 
