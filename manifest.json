@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "id": "resn3t.pomodoro",
   "name": "Pomodoro",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "author": "resn3t",
-  "description": "Theme-adaptive Pomodoro timer with bar-native controls, right-click settings, and break alerts",
+  "description": "Pomodoro timer with bar-native controls, right-click settings, alert response tracking, and points",
   "kinds": [
     "bar-widget"
   ],
@@ -13,7 +13,7 @@
   },
   "barWidget": {
     "displayName": "Pomodoro",
-    "description": "Left-click starts or pauses; right-click opens settings even while running; middle-click skips. Adjust durations with +/\u2212 buttons.",
+    "description": "Left-click starts or pauses; right-click opens settings; skip with middle-click. Points + response tracking.",
     "category": "Productivity",
     "defaultSection": "right",
     "allowMultiple": false,

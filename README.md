@@ -16,6 +16,15 @@ Pomodoro timer as an [Omarchy](https://github.com/basecamp/omarchy) bar widget.
   through 20 hardcoded one-liners (a new one each break) — no setup required.
 - Back-to-work alerts: same idea when a break ends, cycling through a
   separate set of 20 one-liners.
+- **Alert-driven phase transitions** — when a session ends, the next phase
+  pauses instead of auto-starting. The alert button "Start break" / "Let's go"
+  acknowledges and pauses the next phase. "Skip" jumps ahead. No more
+  confusing duplicate button behaviour.
+- **Points system** — earn points for completing sessions (+10 work, +2 break)
+  and for quick alert responses (+5 bonus under 30 s, +1 under 120 s).
+  Points display in the bar tooltip.
+- **Response time tracking** — how fast you reacted to break/work alerts is
+  recorded (last 50 entries) and contributes to your session score.
 - Optional local-AI messages (off by default): enable the "Generate alert
   messages with a local AI (pi CLI + Ollama)" setting in the right-click
   settings popup to replace the hardcoded line with one freshly generated

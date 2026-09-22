@@ -24,6 +24,9 @@ BarWidget {
   property bool resetConfirmVisible: false
   property int commentIndex: -1
   property int workCommentIndex: -1
+  property int points: 0
+  property int lastAlertTime: 0
+  property var responseTimes: []
   readonly property string stateDir: Quickshell.env("HOME") + "/.local/state/omarchy-pomodoro"
 
   readonly property int workDuration: Math.max(1, Number(setting("workMinutes", 25)) || 25) * 60
@@ -64,7 +67,9 @@ BarWidget {
     stateFile.setText(JSON.stringify({
       phase: phase, running: running, completedWork: completedWork,
       deadlineMs: deadlineMs, remainingSeconds: remainingSeconds, phaseTotal: phaseTotal,
-      commentIndex: commentIndex, workCommentIndex: workCommentIndex
+      commentIndex: commentIndex, workCommentIndex: workCommentIndex,
+      points: points, lastAlertTime: lastAlertTime,
+      responseTimes: JSON.stringify(responseTimes)
     }))
   }
 
@@ -80,6 +85,10 @@ BarWidget {
       if (isNaN(commentIndex)) commentIndex = -1
       workCommentIndex = Number(saved.workCommentIndex)
       if (isNaN(workCommentIndex)) workCommentIndex = -1
+      points = Number(saved.points) || 0
+      lastAlertTime = Number(saved.lastAlertTime) || 0
+      var rtStr = typeof saved.responseTimes === "string" ? JSON.parse(saved.responseTimes) : saved.responseTimes
+      responseTimes = Array.isArray(rtStr) ? rtStr : []
       if (saved.running === true && Number(saved.deadlineMs) > Date.now()) {
         deadlineMs = Number(saved.deadlineMs)
         running = true
@@ -158,13 +167,55 @@ BarWidget {
     saveState()
   }
 
+  // Called when user acknowledges an alert (start/dismiss button).
+  // Pauses the next phase and awards response-based points.
+  function handleAlertAcknowledge() {
+    lastAlertTime = Date.now()
+    var responseMs = lastAlertTime - (responseTimes.length > 0 ? responseTimes[responseTimes.length - 1] : lastAlertTime)
+    // Calculate response time from when the alert was triggered
+    if (lastAlertTime > 0) {
+      var elapsed = Math.floor((Date.now() - lastAlertTime) / 1000)
+      var earned = 2 // base points for acknowledging
+      var bonus = 0
+      if (elapsed < 30) bonus = 5
+      else if (elapsed < 120) bonus = 1
+      points += earned + bonus
+      responseTimes.push(Date.now())
+      // Keep last 50 response times
+      if (responseTimes.length > 50) responseTimes = responseTimes.slice(-50)
+    }
+    // Award completion points
+    if (phase === "break" || phase === "longBreak") {
+      points += 10
+    } else {
+      points += 2
+    }
+    saveState()
+  }
+
+  // Override to add completion points for work sessions
+  function handleWorkCompletion() {
+    lastAlertTime = Date.now()
+    points += 10
+    saveState()
+  }
+
+  function handleLongBreakCompletion() {
+    lastAlertTime = Date.now()
+    points += 5
+    saveState()
+  }
+
   function updateRemaining() {
     if (!running) return
     var left = Math.ceil((deadlineMs - Date.now()) / 1000)
     if (left <= 0) {
       var finishedPhase = phase
-      advancePhase(true)
-      if (finishedPhase === "work") triggerBreakAlert()
+      advancePhase(false)
+      if (finishedPhase === "work") {
+        handleWorkCompletion()
+        triggerBreakAlert()
+      }
       else triggerWorkAlert()
       return
     }
@@ -240,6 +291,7 @@ BarWidget {
   readonly property bool aiMessagesEnabled: setting("aiMessages", false) === true
 
   function triggerBreakAlert() {
+    lastAlertTime = Date.now()
     alertPhase = phase === "longBreak" ? "Long break" : "Break"
     alertPhaseDuration = formatSeconds(phaseDuration)
     alertComment = nextComment()
@@ -253,6 +305,7 @@ BarWidget {
   }
 
   function triggerWorkAlert() {
+    lastAlertTime = Date.now()
     alertPhase = "Work"
     alertPhaseDuration = formatSeconds(phaseDuration)
     alertComment = nextWorkComment()
@@ -287,7 +340,7 @@ BarWidget {
 
   function tooltipText() {
     var state = running ? "running" : "paused"
-    return phaseLabel + " · " + displayTime + " · " + state + " · " + completedWork + "/" + iterationTarget + " sessions\n"
+    return phaseLabel + " · " + displayTime + " · " + state + " · " + completedWork + "/" + iterationTarget + " sessions · " + points + " pts\n"
       + "Start/pause: left-click  ·  Settings: right-click  ·  Skip: middle-click"
   }
 
@@ -625,12 +678,15 @@ BarWidget {
         spacing: Style.space(8)
 
         Button {
-          text: root.alertPhase === "Work" ? "▶ Got it" : "▶ Enjoy the break"
+          text: "▶ " + (root.alertPhase === "Work" ? "Let's go" : "Start break")
           iconText: "󰐊"
           focusable: true
           foreground: Color.accent
           fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
-          onClicked: root.alertOpen = false
+          onClicked: {
+            root.handleAlertAcknowledge()
+            root.alertOpen = false
+          }
         }
 
         Button {
@@ -648,7 +704,10 @@ BarWidget {
           focusable: true
           foreground: root.bar ? root.bar.barForeground : Color.foreground
           fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
-          onClicked: root.alertOpen = false
+          onClicked: {
+            root.handleAlertAcknowledge()
+            root.alertOpen = false
+          }
         }
       }
     }
