@@ -12,22 +12,38 @@ Pomodoro timer as an [Omarchy](https://github.com/basecamp/omarchy) bar widget.
 - Configurable work, break, and long-break durations
 - Tracks completed sessions before auto-promoting to a long break
 - Theme-adaptive bar icon that shows the current phase and remaining time
-- Local-AI break alerts: plays a notification sound and offers a short reminder
+- Break alerts: plays a notification sound with a short reminder message. If
+  a local `pi` CLI with an Ollama model is configured on the machine, the
+  message is generated fresh each time; otherwise it falls back to a fixed
+  reminder text. No AI setup is required to use the widget.
 
-## Usage
+## Install
 
-Install as a local plugin:
+```bash
+omarchy plugin add https://github.com/resn3t/omapom.git --enable
+```
+
+Or manually:
 
 ```bash
 git clone https://github.com/resn3t/omapom.git
-cp -r omapom ~/.config/omarchy/plugins/local.pomodoro
+cp -r omapom ~/.config/omarchy/plugins/resn3t.pomodoro
+omarchy restart shell
 ```
 
-Then restart the Omarchy shell (`omarchy restart shell`). Add the widget to
-your bar configuration via `omarchy edit shell` or by editing
-`~/.config/omarchy/shell.json`.
+Add the widget to your bar configuration via `omarchy edit shell` or by
+editing `~/.config/omarchy/shell.json`.
 
 Right-click the bar icon to open the settings popup.
+
+## Remove
+
+```bash
+omarchy plugin remove resn3t.pomodoro --yes
+```
+
+Or manually delete `~/.config/omarchy/plugins/resn3t.pomodoro` and restart
+the shell.
 
 ## Build / Development
 

@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "id": "local.pomodoro",
+  "id": "resn3t.pomodoro",
   "name": "Pomodoro",
   "version": "1.5.0",
-  "author": "Local",
+  "author": "resn3t",
   "description": "Theme-adaptive Pomodoro timer with bar-native controls, right-click settings, and local-AI break alerts",
   "kinds": [
     "bar-widget"

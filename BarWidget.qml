@@ -6,7 +6,7 @@ import qs.Ui
 
 BarWidget {
   id: root
-  moduleName: "local.pomodoro"
+  moduleName: "resn3t.pomodoro"
 
   property string phase: "work"
   property bool running: false
@@ -253,7 +253,7 @@ BarWidget {
   }
 
   IpcHandler {
-    target: "local.pomodoro"
+    target: "resn3t.pomodoro"
     function toggle(): void { root.startOrPause() }
     function skip(): void { root.advancePhase(root.running) }
     function reset(): void { root.reset() }
