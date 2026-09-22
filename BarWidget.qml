@@ -237,6 +237,8 @@ BarWidget {
     return workComments[workCommentIndex]
   }
 
+  readonly property bool aiMessagesEnabled: setting("aiMessages", false) === true
+
   function triggerBreakAlert() {
     alertPhase = phase === "longBreak" ? "Long break" : "Break"
     alertPhaseDuration = formatSeconds(phaseDuration)
@@ -244,8 +246,10 @@ BarWidget {
     alertOpen = true
     notifyProc.command = ["bash", helperPath(), "--notify-break", alertComment]
     notifyProc.running = true
-    reminderProc.command = ["bash", helperPath(), "--generate-break", alertComment]
-    reminderProc.running = true
+    if (aiMessagesEnabled) {
+      reminderProc.command = ["bash", helperPath(), "--generate-break", alertComment]
+      reminderProc.running = true
+    }
   }
 
   function triggerWorkAlert() {
@@ -255,8 +259,10 @@ BarWidget {
     alertOpen = true
     notifyProc.command = ["bash", helperPath(), "--notify-work", alertComment]
     notifyProc.running = true
-    reminderProc.command = ["bash", helperPath(), "--generate-work", alertComment]
-    reminderProc.running = true
+    if (aiMessagesEnabled) {
+      reminderProc.command = ["bash", helperPath(), "--generate-work", alertComment]
+      reminderProc.running = true
+    }
   }
 
   function persistSettings(changes) {
@@ -452,6 +458,31 @@ BarWidget {
       SettingRow { label: "Sessions"; keyName: "iterations"; fallback: 4; maximum: 12 }
 
       Row {
+        width: parent.width
+        spacing: Style.space(8)
+
+        Text {
+          width: parent.width - aiToggle.width - parent.spacing
+          text: "AI-generated alert text (local pi CLI)"
+          wrapMode: Text.Wrap
+          color: root.bar ? root.bar.barForeground : Color.foreground
+          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+          font.pixelSize: Style.font.bodySmall
+          verticalAlignment: Text.AlignVCenter
+        }
+
+        Button {
+          id: aiToggle
+          text: root.aiMessagesEnabled ? "On" : "Off"
+          focusable: true
+          foreground: root.aiMessagesEnabled ? Color.accent : (root.bar ? root.bar.barForeground : Color.foreground)
+          fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
+          tooltipText: "Off by default — only calls a local pi CLI + Ollama model if you turn this on"
+          onClicked: root.persistSettings({ aiMessages: !root.aiMessagesEnabled })
+        }
+      }
+
+      Row {
         spacing: Style.space(6)
 
         Button {
@@ -579,7 +610,9 @@ BarWidget {
 
       Text {
         width: parent.width
-        text: "Take a real break: water, stretch, and look away from the screen."
+        text: root.alertPhase === "Work"
+          ? "Focus session started — you're already counted in."
+          : "Take a real break: water, stretch, and look away from the screen."
         color: root.bar ? Qt.darker(root.bar.barForeground, 1.45) : Color.foreground
         font.family: root.bar ? root.bar.fontFamily : Style.font.family
         font.pixelSize: Style.font.bodySmall
@@ -592,12 +625,12 @@ BarWidget {
         spacing: Style.space(8)
 
         Button {
-          text: "▶ Start break"
+          text: root.alertPhase === "Work" ? "▶ Got it" : "▶ Enjoy the break"
           iconText: "󰐊"
           focusable: true
           foreground: Color.accent
           fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
-          onClicked: { root.advancePhase(true); root.alertOpen = false }
+          onClicked: root.alertOpen = false
         }
 
         Button {

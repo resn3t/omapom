@@ -16,8 +16,11 @@ Pomodoro timer as an [Omarchy](https://github.com/basecamp/omarchy) bar widget.
   through 20 hardcoded one-liners (a new one each break) — no setup required.
 - Back-to-work alerts: same idea when a break ends, cycling through a
   separate set of 20 one-liners.
-- If a local `pi` CLI with an Ollama model is configured on the machine, the
-  shown line gets replaced with a freshly generated one instead.
+- Optional local-AI messages (off by default): enable the "Generate alert
+  messages with a local AI (pi CLI + Ollama)" setting in the right-click
+  settings popup to replace the hardcoded line with one freshly generated
+  by a local `pi` CLI + Ollama model, if you have one configured on your
+  machine. Nothing is called out to unless you turn this on.
 
 ## Install
 

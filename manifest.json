@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "resn3t.pomodoro",
   "name": "Pomodoro",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "author": "resn3t",
   "description": "Theme-adaptive Pomodoro timer with bar-native controls, right-click settings, and break alerts",
   "kinds": [
@@ -21,7 +21,8 @@
       "workMinutes": 25,
       "breakMinutes": 5,
       "longBreakMinutes": 15,
-      "iterations": 4
+      "iterations": 4,
+      "aiMessages": false
     },
     "schema": [
       {
@@ -59,6 +60,12 @@
         "max": 12,
         "step": 1,
         "defaultValue": 4
+      },
+      {
+        "key": "aiMessages",
+        "type": "boolean",
+        "label": "Generate alert messages with a local AI (pi CLI + Ollama)",
+        "defaultValue": false
       }
     ]
   }
