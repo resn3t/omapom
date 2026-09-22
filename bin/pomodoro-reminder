@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -u
 
-mode=${1:-generate}
+mode=${1:-generate-break}
 fallback=${2:-"The tomato says: step away, stretch, and let your brain simmer."}
 
-if [[ "$mode" == "--notify" ]]; then
+if [[ "$mode" == "--notify-break" || "$mode" == "--notify" ]]; then
   if command -v canberra-gtk-play >/dev/null 2>&1; then
     canberra-gtk-play -i complete >/dev/null 2>&1 || true
   elif command -v pw-play >/dev/null 2>&1 && [[ -f /usr/share/sounds/freedesktop/stereo/alarm-clock-elapsed.oga ]]; then
@@ -18,8 +18,26 @@ if [[ "$mode" == "--notify" ]]; then
   exit 0
 fi
 
+if [[ "$mode" == "--notify-work" ]]; then
+  if command -v canberra-gtk-play >/dev/null 2>&1; then
+    canberra-gtk-play -i complete >/dev/null 2>&1 || true
+  elif command -v pw-play >/dev/null 2>&1 && [[ -f /usr/share/sounds/freedesktop/stereo/alarm-clock-elapsed.oga ]]; then
+    pw-play /usr/share/sounds/freedesktop/stereo/alarm-clock-elapsed.oga >/dev/null 2>&1 || true
+  else
+    printf '\a' || true
+  fi
+  if command -v omarchy-notification-send >/dev/null 2>&1; then
+    omarchy-notification-send -u normal -g '󰅶' "Break's over" "$fallback" >/dev/null 2>&1 || true
+  fi
+  exit 0
+fi
+
 model=${PI_POMODORO_MODEL:-ollama-mac/qwen3-8b-nt:latest}
-prompt='Write exactly one short, friendly, funny Omarchy-style reminder to take a break after a focused work session. Mention stretching, water, or looking away from the screen. Maximum 120 characters. Plain text only. Do not use quotes, markdown, emojis, or a preamble.'
+if [[ "$mode" == "--generate-work" ]]; then
+  prompt='Write exactly one short, friendly, funny Omarchy-style nudge telling someone their break is over and it'"'"'s time to get back to focused work. Mention starting, focusing, or diving back in. Maximum 120 characters. Plain text only. Do not use quotes, markdown, emojis, or a preamble.'
+else
+  prompt='Write exactly one short, friendly, funny Omarchy-style reminder to take a break after a focused work session. Mention stretching, water, or looking away from the screen. Maximum 120 characters. Plain text only. Do not use quotes, markdown, emojis, or a preamble.'
+fi
 
 if command -v pi >/dev/null 2>&1; then
   generated=$(timeout 25 pi --no-session --no-context-files --no-skills --no-extensions --no-themes --no-tools \

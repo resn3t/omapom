@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "id": "resn3t.pomodoro",
   "name": "Pomodoro",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "author": "resn3t",
-  "description": "Theme-adaptive Pomodoro timer with bar-native controls, right-click settings, and witty break alerts",
+  "description": "Theme-adaptive Pomodoro timer with bar-native controls, right-click settings, and break alerts",
   "kinds": [
     "bar-widget"
   ],

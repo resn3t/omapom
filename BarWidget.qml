@@ -23,6 +23,7 @@ BarWidget {
   property bool resetTimer: false
   property bool resetConfirmVisible: false
   property int commentIndex: -1
+  property int workCommentIndex: -1
   readonly property string stateDir: Quickshell.env("HOME") + "/.local/state/omarchy-pomodoro"
 
   readonly property int workDuration: Math.max(1, Number(setting("workMinutes", 25)) || 25) * 60
@@ -63,7 +64,7 @@ BarWidget {
     stateFile.setText(JSON.stringify({
       phase: phase, running: running, completedWork: completedWork,
       deadlineMs: deadlineMs, remainingSeconds: remainingSeconds, phaseTotal: phaseTotal,
-      commentIndex: commentIndex
+      commentIndex: commentIndex, workCommentIndex: workCommentIndex
     }))
   }
 
@@ -77,6 +78,8 @@ BarWidget {
       remainingSeconds = Math.max(0, Number(saved.remainingSeconds) || phaseTotal)
       commentIndex = Number(saved.commentIndex)
       if (isNaN(commentIndex)) commentIndex = -1
+      workCommentIndex = Number(saved.workCommentIndex)
+      if (isNaN(workCommentIndex)) workCommentIndex = -1
       if (saved.running === true && Number(saved.deadlineMs) > Date.now()) {
         deadlineMs = Number(saved.deadlineMs)
         running = true
@@ -162,6 +165,7 @@ BarWidget {
       var finishedPhase = phase
       advancePhase(true)
       if (finishedPhase === "work") triggerBreakAlert()
+      else triggerWorkAlert()
       return
     }
     if (left !== remainingSeconds) {
@@ -198,10 +202,39 @@ BarWidget {
     "You've earned a stretch, a sip of water, and mild disdain for whoever scheduled this many meetings."
   ]
 
+  readonly property var workComments: [
+    "Break's over. Yes, already. Physics is unfair like that.",
+    "The couch loved having you. It'll survive the betrayal.",
+    "Snap out of it — the cursor's been blinking this whole time, judging you.",
+    "Reentry sequence initiated. Brain, please return to low orbit.",
+    "Your task list just refreshed its tab out of spite. Go deal with it.",
+    "Procrastination clocked out. Unfortunately, so did you — time to clock back in.",
+    "The tomato is done ripening. Time to get diced into tasks.",
+    "Stretch complete. Water consumed (probably). Onward to productivity.",
+    "Whatever you were about to open next, close it. Focus mode: engaged.",
+    "\"Five more minutes\" was not on the schedule. Back to it.",
+    "Your future self called — they want fewer unfinished tasks, please.",
+    "The break gremlin has left the building. The work gremlin wants a word.",
+    "Chair, reclaimed. Focus, reclaimed. Let's go.",
+    "That was a nice breather. Time to breathe fire into that task list instead.",
+    "Attention: browser tabs are not a personality. Back to the actual task.",
+    "The next stretch of minutes belongs to the task, not the scroll.",
+    "Break's balance: $0.00. Time to make another productivity deposit.",
+    "Cue dramatic keyboard-clacking music. You're back on.",
+    "The tomato has refilled. So should your focus.",
+    "Okay, procrastination — nice try. Back to work now."
+  ]
+
   function nextComment() {
     commentIndex = (commentIndex + 1) % breakComments.length
     saveState()
     return breakComments[commentIndex]
+  }
+
+  function nextWorkComment() {
+    workCommentIndex = (workCommentIndex + 1) % workComments.length
+    saveState()
+    return workComments[workCommentIndex]
   }
 
   function triggerBreakAlert() {
@@ -209,9 +242,20 @@ BarWidget {
     alertPhaseDuration = formatSeconds(phaseDuration)
     alertComment = nextComment()
     alertOpen = true
-    notifyProc.command = ["bash", helperPath(), "--notify", alertComment]
+    notifyProc.command = ["bash", helperPath(), "--notify-break", alertComment]
     notifyProc.running = true
-    reminderProc.command = ["bash", helperPath(), "--generate", alertComment]
+    reminderProc.command = ["bash", helperPath(), "--generate-break", alertComment]
+    reminderProc.running = true
+  }
+
+  function triggerWorkAlert() {
+    alertPhase = "Work"
+    alertPhaseDuration = formatSeconds(phaseDuration)
+    alertComment = nextWorkComment()
+    alertOpen = true
+    notifyProc.command = ["bash", helperPath(), "--notify-work", alertComment]
+    notifyProc.running = true
+    reminderProc.command = ["bash", helperPath(), "--generate-work", alertComment]
     reminderProc.running = true
   }
 
