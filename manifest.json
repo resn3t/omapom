@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "id": "resn3t.pomodoro",
   "name": "Pomodoro",
-  "version": "1.8.0",
+  "version": "1.10.0",
   "author": "resn3t",
-  "description": "Theme-adaptive Pomodoro timer with bar-native controls, right-click settings, and break alerts",
+  "description": "Pomodoro timer with bar-native controls, right-click settings, alert response tracking, points, streaks, and session history",
   "kinds": [
     "bar-widget"
   ],
@@ -13,7 +13,7 @@
   },
   "barWidget": {
     "displayName": "Pomodoro",
-    "description": "Left-click starts or pauses; right-click opens settings even while running; middle-click skips. Adjust durations with +/\u2212 buttons.",
+    "description": "Left-click starts or pauses; right-click opens settings; skip with middle-click. Points + response tracking.",
     "category": "Productivity",
     "defaultSection": "right",
     "allowMultiple": false,
@@ -22,7 +22,8 @@
       "breakMinutes": 5,
       "longBreakMinutes": 15,
       "iterations": 4,
-      "aiMessages": false
+      "aiMessages": false,
+      "milestoneStep": 100
     },
     "schema": [
       {
@@ -66,6 +67,15 @@
         "type": "boolean",
         "label": "Generate alert messages with a local AI (pi CLI + Ollama)",
         "defaultValue": false
+      },
+      {
+        "key": "milestoneStep",
+        "type": "integer",
+        "label": "Points per milestone",
+        "min": 10,
+        "max": 5000,
+        "step": 10,
+        "defaultValue": 100
       }
     ]
   }
