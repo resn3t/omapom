@@ -170,26 +170,26 @@ BarWidget {
   // Called when user acknowledges an alert (start/dismiss button).
   // Pauses the next phase and awards response-based points.
   function handleAlertAcknowledge() {
-    lastAlertTime = Date.now()
-    var responseMs = lastAlertTime - (responseTimes.length > 0 ? responseTimes[responseTimes.length - 1] : lastAlertTime)
-    // Calculate response time from when the alert was triggered
-    if (lastAlertTime > 0) {
-      var elapsed = Math.floor((Date.now() - lastAlertTime) / 1000)
-      var earned = 2 // base points for acknowledging
-      var bonus = 0
-      if (elapsed < 30) bonus = 5
-      else if (elapsed < 120) bonus = 1
-      points += earned + bonus
-      responseTimes.push(Date.now())
-      // Keep last 50 response times
-      if (responseTimes.length > 50) responseTimes = responseTimes.slice(-50)
-    }
-    // Award completion points
-    if (phase === "break" || phase === "longBreak") {
-      points += 10
-    } else {
+    // Elapsed time since the alert appeared, computed before lastAlertTime
+    // is overwritten below.
+    var elapsed = lastAlertTime > 0 ? Math.floor((Date.now() - lastAlertTime) / 1000) : 0
+    var bonus = 0
+    if (elapsed < 30) bonus = 5
+    else if (elapsed < 120) bonus = 1
+    points += bonus
+    responseTimes.push(elapsed)
+    // Keep last 50 response times
+    if (responseTimes.length > 50) responseTimes = responseTimes.slice(-50)
+
+    // Work/long-break completion points are already awarded when the timer
+    // expires (see handleWorkCompletion / handleLongBreakCompletion). Only
+    // break completion is awarded here, on acknowledgement — the phase has
+    // already advanced to "work" by this point.
+    if (phase === "work") {
       points += 2
     }
+
+    lastAlertTime = Date.now()
     saveState()
   }
 
@@ -202,7 +202,7 @@ BarWidget {
 
   function handleLongBreakCompletion() {
     lastAlertTime = Date.now()
-    points += 5
+    points += 3
     saveState()
   }
 
@@ -215,8 +215,12 @@ BarWidget {
       if (finishedPhase === "work") {
         handleWorkCompletion()
         triggerBreakAlert()
+      } else if (finishedPhase === "longBreak") {
+        handleLongBreakCompletion()
+        triggerWorkAlert()
+      } else {
+        triggerWorkAlert()
       }
-      else triggerWorkAlert()
       return
     }
     if (left !== remainingSeconds) {
@@ -664,7 +668,7 @@ BarWidget {
       Text {
         width: parent.width
         text: root.alertPhase === "Work"
-          ? "Focus session started — you're already counted in."
+          ? "Your focus session is paused and ready — press start when you are."
           : "Take a real break: water, stretch, and look away from the screen."
         color: root.bar ? Qt.darker(root.bar.barForeground, 1.45) : Color.foreground
         font.family: root.bar ? root.bar.fontFamily : Style.font.family
