@@ -31,6 +31,15 @@ Pomodoro timer as an [Omarchy](https://github.com/basecamp/omarchy) bar widget.
   by a local `pi` CLI + Ollama model, if you have one configured on your
   machine. Nothing is called out to unless you turn this on.
 
+## Roadmap
+
+Ideas under consideration for a future release:
+
+- Session log popup (recent sessions with duration, points, response time)
+- Day streak tracking
+- Configurable point thresholds / milestones
+- Visual progress towards milestones in the tooltip
+
 ## Install
 
 ```bash
