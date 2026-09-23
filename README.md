@@ -18,8 +18,10 @@ Pomodoro timer as an [Omarchy](https://github.com/basecamp/omarchy) bar widget.
   separate set of 20 one-liners.
 - **Alert-driven phase transitions** — when a session ends, the next phase
   pauses instead of auto-starting. The alert button "Start break" / "Let's go"
-  acknowledges and pauses the next phase. "Skip" jumps ahead. No more
-  confusing duplicate button behaviour.
+  starts the next phase immediately; "Dismiss" leaves it paused for you to
+  start later; "Skip" jumps ahead. While paused after an alert, the bar shows
+  a 💤 counter (e.g. "💤 2:14") for how long it's been idle, so it never looks
+  frozen.
 - **Points system** — earn points for completing sessions (+10 work, +2 break)
   and for quick alert responses (+5 bonus under 30 s, +1 under 120 s).
   Points display in the bar tooltip.

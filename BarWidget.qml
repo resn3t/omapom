@@ -32,6 +32,8 @@ BarWidget {
   property string lastStreakDate: ""
   property bool historyOpen: false
   property bool advancedOpen: false
+  property real pausedSinceMs: 0
+  property int idleSeconds: 0
   readonly property string stateDir: Quickshell.env("HOME") + "/.local/state/omarchy-pomodoro"
   readonly property int milestoneStep: Math.max(10, Number(setting("milestoneStep", 100)) || 100)
   readonly property int milestoneLevel: Math.floor(points / milestoneStep)
@@ -63,6 +65,8 @@ BarWidget {
     remainingSeconds = workDuration
     phaseTotal = workDuration
     deadlineMs = 0
+    pausedSinceMs = 0
+    idleSeconds = 0
     saveState()
   }
 
@@ -140,11 +144,26 @@ BarWidget {
       updateRemaining()
       running = false
       deadlineMs = 0
+      pausedSinceMs = Date.now()
+      idleSeconds = 0
     } else {
       if (remainingSeconds <= 0) remainingSeconds = phaseDuration
       deadlineMs = Date.now() + remainingSeconds * 1000
       running = true
+      pausedSinceMs = 0
     }
+    saveState()
+  }
+
+  // Starts the (already-paused) current phase running. Used by the alert
+  // popup's primary button, which should begin the next interval rather
+  // than just acknowledging it.
+  function startTimerNow() {
+    if (running) return
+    if (remainingSeconds <= 0) remainingSeconds = phaseDuration
+    deadlineMs = Date.now() + remainingSeconds * 1000
+    running = true
+    pausedSinceMs = 0
     saveState()
   }
 
@@ -181,7 +200,13 @@ BarWidget {
     phaseTotal = phaseDuration
     deadlineMs = 0
     running = continueRunning === true
-    if (running) deadlineMs = Date.now() + remainingSeconds * 1000
+    if (running) {
+      deadlineMs = Date.now() + remainingSeconds * 1000
+      pausedSinceMs = 0
+    } else {
+      pausedSinceMs = Date.now()
+      idleSeconds = 0
+    }
     saveState()
   }
 
@@ -417,7 +442,7 @@ BarWidget {
   }
 
   function tooltipText() {
-    var state = running ? "running" : "paused"
+    var state = running ? "running" : (pausedSinceMs > 0 ? "💤 idle " + formatSeconds(idleSeconds) : "paused")
     var streakText = dayStreak > 1 ? " · 🔥 " + dayStreak + "-day streak" : ""
     return phaseLabel + " · " + displayTime + " · " + state + " · " + completedWork + "/" + iterationTarget + " sessions · " + points + " pts" + streakText + "\n"
       + "Milestone " + (milestoneLevel + 1) + ": " + milestoneProgress + "/" + milestoneStep + " pts\n"
@@ -457,6 +482,17 @@ BarWidget {
     onTriggered: root.updateRemaining()
   }
 
+  // Ticks the "idle since last session ended" counter shown in the bar
+  // while paused (e.g. after dismissing an alert without starting the
+  // next phase).
+  Timer {
+    interval: 1000
+    running: !root.running && root.pausedSinceMs > 0
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: root.idleSeconds = Math.max(0, Math.floor((Date.now() - root.pausedSinceMs) / 1000))
+  }
+
   IpcHandler {
     target: "resn3t.pomodoro"
     function toggle(): void { root.startOrPause() }
@@ -487,7 +523,7 @@ BarWidget {
 
   Timer {
     id: resetConfirmTimer
-    interval: 2500
+    interval: 6000
     repeat: false
     onTriggered: root.resetConfirmVisible = false
   }
@@ -496,7 +532,9 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: root.running ? root.phaseGlyph + "  " + root.displayTime : root.phaseGlyph
+    text: root.running
+      ? root.phaseGlyph + "  " + root.displayTime
+      : (root.pausedSinceMs > 0 ? root.phaseGlyph + "  💤" + root.formatSeconds(root.idleSeconds) : root.phaseGlyph)
     labelVisible: true
     tooltipText: root.tooltipText()
     horizontalMargin: Style.space(3.5)
@@ -608,20 +646,15 @@ BarWidget {
 
         Button {
           iconText: "󰑓"
-          tooltipText: root.resetConfirmVisible ? "Confirm?" : "Reset timer (click to confirm)"
+          tooltipText: "Reset timer & durations"
           focusable: true
           foreground: root.bar ? root.bar.barForeground : Color.foreground
           fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
           active: root.resetConfirmVisible
           onClicked: {
-            if (root.resetConfirmVisible) {
-              root.reset()
-              root.resetConfirmVisible = false
-            } else {
-              root.resetTimer = true
-              root.resetConfirmVisible = true
-              resetConfirmTimer.start()
-            }
+            root.resetTimer = true
+            root.resetConfirmVisible = true
+            resetConfirmTimer.restart()
           }
         }
 
@@ -665,14 +698,46 @@ BarWidget {
         }
       }
 
-      Text {
+      Row {
         width: parent.width
-        horizontalAlignment: Text.AlignHCenter
-        text: "All changes reset" + (root.resetTimer ? " · Esc closes without reset" : " · Click twice to confirm")
-        color: Color.accent
-        font.family: root.bar ? root.bar.fontFamily : Style.font.family
-        font.pixelSize: Style.font.caption
+        spacing: Style.space(8)
         visible: root.resetConfirmVisible
+
+        Text {
+          width: parent.width - confirmResetButton.width - cancelResetButton.width - parent.spacing * 2
+          anchors.verticalCenter: parent.verticalCenter
+          wrapMode: Text.Wrap
+          text: "Reset timer & durations?"
+          color: Color.accent
+          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+          font.pixelSize: Style.font.caption
+        }
+
+        Button {
+          id: confirmResetButton
+          text: "Yes"
+          focusable: true
+          foreground: Color.accent
+          fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
+          onClicked: {
+            resetConfirmTimer.stop()
+            root.reset()
+            root.resetConfirmVisible = false
+          }
+        }
+
+        Button {
+          id: cancelResetButton
+          text: "Cancel"
+          focusable: true
+          foreground: root.bar ? root.bar.barForeground : Color.foreground
+          fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
+          onClicked: {
+            resetConfirmTimer.stop()
+            root.resetTimer = false
+            root.resetConfirmVisible = false
+          }
+        }
       }
 
       PanelSeparator {
@@ -866,13 +931,14 @@ BarWidget {
         spacing: Style.space(8)
 
         Button {
-          text: "▶ " + (root.alertPhase === "Work" ? "Let's go" : "Start break")
+          text: root.alertPhase === "Work" ? "Let's go" : "Start break"
           iconText: "󰐊"
           focusable: true
           foreground: Color.accent
           fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
           onClicked: {
             root.handleAlertAcknowledge()
+            root.startTimerNow()
             root.alertOpen = false
           }
         }

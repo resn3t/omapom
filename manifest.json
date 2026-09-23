@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "resn3t.pomodoro",
   "name": "Pomodoro",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "author": "resn3t",
   "description": "Pomodoro timer with bar-native controls, right-click settings, alert response tracking, points, streaks, and session history",
   "kinds": [
