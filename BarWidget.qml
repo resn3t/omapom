@@ -27,7 +27,15 @@ BarWidget {
   property int points: 0
   property int lastAlertTime: 0
   property var responseTimes: []
+  property var sessionLog: []
+  property int dayStreak: 0
+  property string lastStreakDate: ""
+  property bool historyOpen: false
+  property bool advancedOpen: false
   readonly property string stateDir: Quickshell.env("HOME") + "/.local/state/omarchy-pomodoro"
+  readonly property int milestoneStep: Math.max(10, Number(setting("milestoneStep", 100)) || 100)
+  readonly property int milestoneLevel: Math.floor(points / milestoneStep)
+  readonly property int milestoneProgress: points - milestoneLevel * milestoneStep
 
   readonly property int workDuration: Math.max(1, Number(setting("workMinutes", 25)) || 25) * 60
   readonly property int breakDuration: Math.max(1, Number(setting("breakMinutes", 5)) || 5) * 60
@@ -69,7 +77,9 @@ BarWidget {
       deadlineMs: deadlineMs, remainingSeconds: remainingSeconds, phaseTotal: phaseTotal,
       commentIndex: commentIndex, workCommentIndex: workCommentIndex,
       points: points, lastAlertTime: lastAlertTime,
-      responseTimes: JSON.stringify(responseTimes)
+      responseTimes: JSON.stringify(responseTimes),
+      sessionLog: JSON.stringify(sessionLog),
+      dayStreak: dayStreak, lastStreakDate: lastStreakDate
     }))
   }
 
@@ -89,6 +99,10 @@ BarWidget {
       lastAlertTime = Number(saved.lastAlertTime) || 0
       var rtStr = typeof saved.responseTimes === "string" ? JSON.parse(saved.responseTimes) : saved.responseTimes
       responseTimes = Array.isArray(rtStr) ? rtStr : []
+      var logStr = typeof saved.sessionLog === "string" ? JSON.parse(saved.sessionLog) : saved.sessionLog
+      sessionLog = Array.isArray(logStr) ? logStr : []
+      dayStreak = Math.max(0, Number(saved.dayStreak) || 0)
+      lastStreakDate = typeof saved.lastStreakDate === "string" ? saved.lastStreakDate : ""
       if (saved.running === true && Number(saved.deadlineMs) > Date.now()) {
         deadlineMs = Number(saved.deadlineMs)
         running = true
@@ -137,6 +151,8 @@ BarWidget {
   function openSettings() {
     alertOpen = false
     settingsOpen = false
+    historyOpen = false
+    advancedOpen = false
     Qt.callLater(function() {
       if (!root.alertOpen) root.settingsOpen = true
     })
@@ -145,6 +161,8 @@ BarWidget {
   function close() {
     settingsOpen = false
     alertOpen = false
+    historyOpen = false
+    advancedOpen = false
   }
 
   function advancePhase(continueRunning) {
@@ -176,7 +194,7 @@ BarWidget {
     var bonus = 0
     if (elapsed < 30) bonus = 5
     else if (elapsed < 120) bonus = 1
-    points += bonus
+    var ackPoints = bonus
     responseTimes.push(elapsed)
     // Keep last 50 response times
     if (responseTimes.length > 50) responseTimes = responseTimes.slice(-50)
@@ -186,23 +204,77 @@ BarWidget {
     // break completion is awarded here, on acknowledgement — the phase has
     // already advanced to "work" by this point.
     if (phase === "work") {
-      points += 2
+      ackPoints += 2
+    }
+    points += ackPoints
+
+    // Attribute the response time and acknowledgement bonus to the log
+    // entry for the phase that just ended (always the most recent one).
+    if (sessionLog.length > 0) {
+      var updatedLog = sessionLog.slice()
+      var lastEntry = Object.assign({}, updatedLog[updatedLog.length - 1])
+      lastEntry.responseTime = elapsed
+      lastEntry.points += ackPoints
+      updatedLog[updatedLog.length - 1] = lastEntry
+      sessionLog = updatedLog
     }
 
     lastAlertTime = Date.now()
     saveState()
   }
 
+  function todayKey() {
+    var d = new Date()
+    var mm = String(d.getMonth() + 1).padStart(2, "0")
+    var dd = String(d.getDate()).padStart(2, "0")
+    return d.getFullYear() + "-" + mm + "-" + dd
+  }
+
+  // Increments the day streak once per calendar day a work session
+  // completes; resets it if a day was missed.
+  function updateStreak() {
+    var today = todayKey()
+    if (lastStreakDate === today) return
+    if (lastStreakDate !== "") {
+      var prevDate = new Date(lastStreakDate + "T00:00:00")
+      var todayDate = new Date(today + "T00:00:00")
+      var diffDays = Math.round((todayDate - prevDate) / 86400000)
+      dayStreak = diffDays === 1 ? dayStreak + 1 : 1
+    } else {
+      dayStreak = 1
+    }
+    lastStreakDate = today
+  }
+
+  // Records a completed phase in the session log (most recent last).
+  // responseTime is filled in later by handleAlertAcknowledge.
+  function logSession(phaseName, duration, earnedPoints) {
+    sessionLog = sessionLog.concat([{
+      phase: phaseName, duration: duration, points: earnedPoints,
+      responseTime: -1, ts: Date.now()
+    }])
+    if (sessionLog.length > 20) sessionLog = sessionLog.slice(-20)
+  }
+
   // Override to add completion points for work sessions
-  function handleWorkCompletion() {
+  function handleWorkCompletion(duration) {
     lastAlertTime = Date.now()
     points += 10
+    updateStreak()
+    logSession("Focus session", duration, 10)
     saveState()
   }
 
-  function handleLongBreakCompletion() {
+  function handleLongBreakCompletion(duration) {
     lastAlertTime = Date.now()
     points += 3
+    logSession("Long break", duration, 3)
+    saveState()
+  }
+
+  function handleBreakCompletion(duration) {
+    lastAlertTime = Date.now()
+    logSession("Break", duration, 0)
     saveState()
   }
 
@@ -211,14 +283,16 @@ BarWidget {
     var left = Math.ceil((deadlineMs - Date.now()) / 1000)
     if (left <= 0) {
       var finishedPhase = phase
+      var finishedDuration = phaseTotal
       advancePhase(false)
       if (finishedPhase === "work") {
-        handleWorkCompletion()
+        handleWorkCompletion(finishedDuration)
         triggerBreakAlert()
       } else if (finishedPhase === "longBreak") {
-        handleLongBreakCompletion()
+        handleLongBreakCompletion(finishedDuration)
         triggerWorkAlert()
       } else {
+        handleBreakCompletion(finishedDuration)
         triggerWorkAlert()
       }
       return
@@ -344,7 +418,9 @@ BarWidget {
 
   function tooltipText() {
     var state = running ? "running" : "paused"
-    return phaseLabel + " · " + displayTime + " · " + state + " · " + completedWork + "/" + iterationTarget + " sessions · " + points + " pts\n"
+    var streakText = dayStreak > 1 ? " · 🔥 " + dayStreak + "-day streak" : ""
+    return phaseLabel + " · " + displayTime + " · " + state + " · " + completedWork + "/" + iterationTarget + " sessions · " + points + " pts" + streakText + "\n"
+      + "Milestone " + (milestoneLevel + 1) + ": " + milestoneProgress + "/" + milestoneStep + " pts\n"
       + "Start/pause: left-click  ·  Settings: right-click  ·  Skip: middle-click"
   }
 
@@ -461,7 +537,7 @@ BarWidget {
     owner: root
     open: root.settingsOpen
     contentWidth: settingsPopup.fittedContentWidth(Style.space(292), Style.space(360))
-    contentHeight: settingsPopup.fittedContentHeight(form.implicitHeight, Style.space(330))
+    contentHeight: settingsPopup.fittedContentHeight(form.implicitHeight, Style.space(400))
     onVisibleChanged: {
       if (!visible) {
         root.resetTimer = false
@@ -485,8 +561,21 @@ BarWidget {
           font.family: root.bar ? root.bar.fontFamily : Style.font.family
           font.pixelSize: Style.font.subtitle
           font.bold: true
-          width: parent.width - closeButton.width - parent.spacing
+          width: parent.width - advancedButton.width - closeButton.width - parent.spacing * 2
           anchors.verticalCenter: parent.verticalCenter
+        }
+
+        Button {
+          id: advancedButton
+          iconText: "󰒓"
+          focusable: true
+          tooltipText: "Advanced settings"
+          foreground: root.bar ? root.bar.barForeground : Color.foreground
+          fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
+          onClicked: {
+            root.settingsOpen = false
+            root.advancedOpen = true
+          }
         }
 
         Button {
@@ -513,31 +602,6 @@ BarWidget {
       SettingRow { label: "Break"; keyName: "breakMinutes"; fallback: 5; maximum: 120 }
       SettingRow { label: "Long break"; keyName: "longBreakMinutes"; fallback: 15; maximum: 240 }
       SettingRow { label: "Sessions"; keyName: "iterations"; fallback: 4; maximum: 12 }
-
-      Row {
-        width: parent.width
-        spacing: Style.space(8)
-
-        Text {
-          width: parent.width - aiToggle.width - parent.spacing
-          text: "AI-generated alert text (local pi CLI)"
-          wrapMode: Text.Wrap
-          color: root.bar ? root.bar.barForeground : Color.foreground
-          font.family: root.bar ? root.bar.fontFamily : Style.font.family
-          font.pixelSize: Style.font.bodySmall
-          verticalAlignment: Text.AlignVCenter
-        }
-
-        Button {
-          id: aiToggle
-          text: root.aiMessagesEnabled ? "On" : "Off"
-          focusable: true
-          foreground: root.aiMessagesEnabled ? Color.accent : (root.bar ? root.bar.barForeground : Color.foreground)
-          fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
-          tooltipText: "Off by default — only calls a local pi CLI + Ollama model if you turn this on"
-          onClicked: root.persistSettings({ aiMessages: !root.aiMessagesEnabled })
-        }
-      }
 
       Row {
         spacing: Style.space(6)
@@ -587,6 +651,18 @@ BarWidget {
           fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
           onClicked: root.persistSettings({ workMinutes: 25, breakMinutes: 5, longBreakMinutes: 15, iterations: 4 })
         }
+
+        Button {
+          iconText: "󰋚"
+          tooltipText: "Session history"
+          focusable: true
+          foreground: root.bar ? root.bar.barForeground : Color.foreground
+          fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
+          onClicked: {
+            root.settingsOpen = false
+            root.historyOpen = true
+          }
+        }
       }
 
       Text {
@@ -597,6 +673,114 @@ BarWidget {
         font.family: root.bar ? root.bar.fontFamily : Style.font.family
         font.pixelSize: Style.font.caption
         visible: root.resetConfirmVisible
+      }
+
+      PanelSeparator {
+        width: parent.width
+        foreground: root.bar ? root.bar.barForeground : Color.foreground
+      }
+
+      Text {
+        width: parent.width
+        wrapMode: Text.Wrap
+        text: root.points + " pts"
+          + (root.dayStreak > 1 ? "  ·  🔥 " + root.dayStreak + "-day streak" : "")
+        color: root.bar ? root.bar.barForeground : Color.foreground
+        font.family: root.bar ? root.bar.fontFamily : Style.font.family
+        font.pixelSize: Style.font.body
+        font.bold: true
+      }
+
+      Text {
+        width: parent.width
+        wrapMode: Text.Wrap
+        text: "Milestone " + (root.milestoneLevel + 1) + ": " + root.milestoneProgress + "/" + root.milestoneStep + " pts"
+        color: Color.accent
+        font.family: root.bar ? root.bar.fontFamily : Style.font.family
+        font.pixelSize: Style.font.bodySmall
+      }
+
+      Item { width: 1; height: Style.space(4) }
+    }
+  }
+
+  PopupCard {
+    id: advancedPopup
+    anchorItem: root
+    bar: root.bar
+    owner: root
+    open: root.advancedOpen
+    contentWidth: advancedPopup.fittedContentWidth(Style.space(292), Style.space(360))
+    contentHeight: advancedPopup.fittedContentHeight(advancedForm.implicitHeight, Style.space(220))
+    onVisibleChanged: if (!visible) root.advancedOpen = false
+
+    Column {
+      id: advancedForm
+      anchors.fill: parent
+      spacing: Style.space(6)
+
+      Row {
+        width: parent.width
+        spacing: Style.space(8)
+
+        Text {
+          text: "󰒓  Advanced"
+          color: root.bar ? root.bar.barForeground : Color.foreground
+          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+          font.pixelSize: Style.font.subtitle
+          font.bold: true
+          width: parent.width - advancedCloseButton.width - parent.spacing
+          anchors.verticalCenter: parent.verticalCenter
+        }
+
+        Button {
+          id: advancedCloseButton
+          iconText: "󰅖"
+          focusable: true
+          tooltipText: "Close (Esc)"
+          foreground: root.bar ? root.bar.barForeground : Color.foreground
+          fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
+          onClicked: root.advancedOpen = false
+        }
+      }
+
+      PanelSeparator {
+        width: parent.width
+        foreground: root.bar ? root.bar.barForeground : Color.foreground
+      }
+
+      Row {
+        width: parent.width
+        spacing: Style.space(8)
+
+        Text {
+          width: parent.width - aiToggle.width - parent.spacing
+          text: "AI-generated alert text (local pi CLI)"
+          wrapMode: Text.Wrap
+          color: root.bar ? root.bar.barForeground : Color.foreground
+          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+          font.pixelSize: Style.font.bodySmall
+          verticalAlignment: Text.AlignVCenter
+        }
+
+        Button {
+          id: aiToggle
+          text: root.aiMessagesEnabled ? "On" : "Off"
+          focusable: true
+          foreground: root.aiMessagesEnabled ? Color.accent : (root.bar ? root.bar.barForeground : Color.foreground)
+          fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
+          tooltipText: "Off by default — only calls a local pi CLI + Ollama model if you turn this on"
+          onClicked: root.persistSettings({ aiMessages: !root.aiMessagesEnabled })
+        }
+      }
+
+      Text {
+        width: parent.width
+        wrapMode: Text.Wrap
+        text: "Uses whatever model your local pi CLI is configured with. No network calls unless you've set pi up to use a remote model yourself."
+        color: Qt.darker(root.bar ? root.bar.barForeground : Color.foreground, 1.35)
+        font.family: root.bar ? root.bar.fontFamily : Style.font.family
+        font.pixelSize: Style.font.caption
       }
     }
   }
@@ -711,6 +895,115 @@ BarWidget {
           onClicked: {
             root.handleAlertAcknowledge()
             root.alertOpen = false
+          }
+        }
+      }
+    }
+  }
+
+  function recentSessions() {
+    var recent = sessionLog.slice(-8)
+    recent.reverse()
+    return recent
+  }
+
+  function formatResponseTime(value) {
+    return value >= 0 ? (value + "s") : "—"
+  }
+
+  PopupCard {
+    id: historyPopup
+    anchorItem: root
+    bar: root.bar
+    owner: root
+    open: root.historyOpen
+    contentWidth: historyPopup.fittedContentWidth(Style.space(300), Style.space(380))
+    contentHeight: historyPopup.fittedContentHeight(historyContent.implicitHeight, Style.space(360))
+    onVisibleChanged: if (!visible) root.historyOpen = false
+
+    Column {
+      id: historyContent
+      anchors.fill: parent
+      spacing: Style.space(6)
+
+      Row {
+        width: parent.width
+        spacing: Style.space(8)
+
+        Text {
+          text: "󰋚  Session history"
+          color: root.bar ? root.bar.barForeground : Color.foreground
+          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+          font.pixelSize: Style.font.subtitle
+          font.bold: true
+          width: parent.width - historyCloseButton.width - parent.spacing
+          anchors.verticalCenter: parent.verticalCenter
+        }
+
+        Button {
+          id: historyCloseButton
+          iconText: "󰅖"
+          focusable: true
+          tooltipText: "Close (Esc)"
+          foreground: root.bar ? root.bar.barForeground : Color.foreground
+          fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
+          onClicked: root.historyOpen = false
+        }
+      }
+
+      PanelSeparator {
+        width: parent.width
+        foreground: root.bar ? root.bar.barForeground : Color.foreground
+      }
+
+      Text {
+        width: parent.width
+        wrapMode: Text.Wrap
+        visible: root.sessionLog.length === 0
+        text: "No sessions completed yet."
+        color: Qt.darker(root.bar ? root.bar.barForeground : Color.foreground, 1.35)
+        font.family: root.bar ? root.bar.fontFamily : Style.font.family
+        font.pixelSize: Style.font.bodySmall
+      }
+
+      Repeater {
+        model: root.recentSessions()
+
+        Row {
+          width: historyContent.width
+          spacing: Style.space(8)
+
+          Text {
+            width: Style.space(110)
+            text: modelData.phase
+            color: root.bar ? root.bar.barForeground : Color.foreground
+            font.family: root.bar ? root.bar.fontFamily : Style.font.family
+            font.pixelSize: Style.font.bodySmall
+            elide: Text.ElideRight
+          }
+
+          Text {
+            width: Style.space(56)
+            text: root.formatSeconds(modelData.duration)
+            color: Qt.darker(root.bar ? root.bar.barForeground : Color.foreground, 1.2)
+            font.family: root.bar ? root.bar.fontFamily : Style.font.family
+            font.pixelSize: Style.font.bodySmall
+          }
+
+          Text {
+            width: Style.space(56)
+            text: root.formatResponseTime(modelData.responseTime)
+            color: Qt.darker(root.bar ? root.bar.barForeground : Color.foreground, 1.2)
+            font.family: root.bar ? root.bar.fontFamily : Style.font.family
+            font.pixelSize: Style.font.bodySmall
+          }
+
+          Text {
+            text: "+" + modelData.points + " pts"
+            color: Color.accent
+            font.family: root.bar ? root.bar.fontFamily : Style.font.family
+            font.pixelSize: Style.font.bodySmall
+            font.bold: true
           }
         }
       }
